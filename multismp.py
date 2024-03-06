@@ -359,6 +359,8 @@ class MultiDetection(Detection):
 					self.source_matrix.append(np.zeros((size * size)))
 		self.constructDesignMatrix(size, background)
 		self.solvePhotometry(True, True)
+		self.shifts = x_sol
+		return x_sol
 
 def chi2_multi(x, detection, size = 30, background = False):
 	j = 0	
