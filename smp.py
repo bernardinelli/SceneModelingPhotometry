@@ -37,7 +37,7 @@ def gain(expnum, ccdnum, x, y, stampsize, gain_dict):
 
 
 
-def construct_psf_background(ra, dec, wcs, psf, x_loc, y_loc, stampsize, flatten = True):
+def construct_psf_background(ra, dec, wcs, psf, x_loc, y_loc, stampsize, flatten = True, color=0.61):
 	'''
 	Constructs the background model using PIFF's PSFs around a certain image (x,y) location and a given array of RA and DECs.
 	The pixel coordinates are found using pixmappy's WCSs 
@@ -49,7 +49,7 @@ def construct_psf_background(ra, dec, wcs, psf, x_loc, y_loc, stampsize, flatten
 	psfs = np.zeros((stampsize*stampsize, len(x)))
 	k = 0
 	for i,j in zip(x,y):
-		d = psf.draw(x_loc, y_loc, stamp_size = stampsize, center = (i,j))
+		d = psf.draw(x_loc, y_loc, stamp_size = stampsize, center = (i,j), GI_COLOR=color)
 		if flatten:
 			d = np.flip(d.array).flatten()
 			#d = d.reshape((1,stampsize**2,))
@@ -62,7 +62,7 @@ def construct_psf_background(ra, dec, wcs, psf, x_loc, y_loc, stampsize, flatten
 	return psfs
 
 
-def construct_psf_source(x, y, psf, stampsize=30, x_center = None, y_center = None):
+def construct_psf_source(x, y, psf, stampsize=30, x_center = None, y_center = None, color=0.61):
 	'''
 		Constructs the PIFF PSF around the point source (x,y) location, allowing for some offset from the center
 		 (if so, specify x_center and y_center)
@@ -71,7 +71,7 @@ def construct_psf_source(x, y, psf, stampsize=30, x_center = None, y_center = No
 	if x_center is None:
 		x_center = x 
 		y_center = y
-	d = psf.draw(x_center, y_center, stamp_size = stampsize, center=(x,y))
+	d = psf.draw(x_center, y_center, stamp_size = stampsize, center=(x,y), GI_COLOR=color)
 		
 	return d.array.flatten()
 
@@ -168,7 +168,7 @@ class Detection:
 		if return_list:
 			return self.exposures
 
-	def findPixelCoords(self, expnum = None, ccdnum = None, pmc = DESMaps(), return_wcs = False, color = 0.61):
+	def findPixelCoords(self, expnum = None, ccdnum = None, pmc = DESMaps(), return_wcs = False, color = 0.61, ra = None, dec = None):
 		'''
 		Finds the pixel coordinates of the detection using pixmappy (data provided using the pmc argument)
 		for a given expopsure/ccdnum pair. Can return the wcs for usage in other functions
@@ -179,10 +179,13 @@ class Detection:
 			expnum = self.expnum
 			ccdnum = self.ccdnum
 
+		if ra is None:
+			ra = self.ra
+			dec = self.dec
 
 		wcs = pmc.getDESWCS(expnum, int(ccdnum))
 
-		x, y = wcs.toPix(np.array([self.ra]), np.array([self.dec]), c = color)
+		x, y = wcs.toPix(np.array([ra]), np.array([dec]), c = color)
 
 		if return_wcs:
 			return x, y, wcs
@@ -589,11 +592,11 @@ def chi2_binary(x, detection, sparse = True, size = 30, background = False):
 	return chisq 
 
 
-def chi2_single(x, detection, sparse = True, size = 30, background = False):
+def chi2_single(x, detection, size = 30, background = False):
 	x1, y1 = x 
 	detection.psf_source = construct_psf_source(detection.x + x1, detection.y + y1, detection.source_psf, size, detection.x, detection.y)
-	detection.constructDesignMatrix(size, sparse, background)
-	detection.solvePhotometry(True, False, sparse)
+	detection.constructDesignMatrix(size, True, background)
+	detection.solvePhotometry(True, False, True)
 	chisq = np.sum(detection.res * detection.res * detection.invwgt)
 
 	return chisq 
